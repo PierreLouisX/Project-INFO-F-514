@@ -1,0 +1,90 @@
+#ifndef PAILLIER_HPP
+    #define PAILLIER_HPP
+    #include <gmpxx.h>
+    #include <vector>
+    #include <string>
+
+    mpz_class generate_prime_openssl(int bits);
+
+    mpz_class random_number_generator(const mpz_class& n);
+
+    bool miller_rabin_primality_test(const mpz_class& n, int bound);
+
+
+    
+
+    // Represents Z_n*² (multiplicative group modulo n²)
+    // n = p*q where p and q are prime
+    class Group {
+
+        private:
+            mpz_class p;
+            mpz_class q;
+            mpz_class n;
+            mpz_class n_square;
+
+        public:
+            Group(const mpz_class& p1,const mpz_class& q1);
+            const mpz_class& get_n() const;
+            const mpz_class& get_n_square()const; 
+    };
+
+
+
+
+
+    // Element of Z*_{n²}, i.e., invertible modulo n²
+    // Ensures gcd(value, n²) = 1
+    class ElementZnSquareStar {
+
+        private:
+            mpz_class value;
+            const Group& G;
+
+        public:
+            ElementZnSquareStar(const mpz_class& v,const Group& G1);
+
+            const Group& getGroup() const;
+            const mpz_class& getValue() const;
+            
+
+            ElementZnSquareStar operator*(const ElementZnSquareStar& e) const;
+
+            
+            ElementZnSquareStar pow(const mpz_class exponent) const;
+    };
+
+
+
+    class Encryption {
+        private :
+            mpz_class n;
+            mpz_class g;
+            mpz_class n_square;
+
+        public :
+            Encryption(const mpz_class& n);
+            mpz_class generate_cyphertext(const mpz_class& plaintext) const;
+    };
+
+
+    class Decryption {
+        private :
+            mpz_class p;
+            mpz_class q;
+            mpz_class n;
+            mpz_class g;
+            mpz_class n_square;
+            mpz_class lambda;
+            mpz_class mu;
+            mpz_class L(const mpz_class& u) const;
+
+        public :
+        Decryption(const mpz_class& p, const mpz_class& q);
+        mpz_class find_plaintext(const mpz_class& ciphertext) const;
+    };
+
+
+#endif
+
+
