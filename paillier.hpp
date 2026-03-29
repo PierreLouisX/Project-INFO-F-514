@@ -50,19 +50,20 @@
 
         private:
             mpz_class value;
-            const Group G;
+            const mpz_class n;
+            const mpz_class n_square;
 
         public:
-            ElementZnSquareStar(const mpz_class& v,const Group& G1);
+            ElementZnSquareStar(const mpz_class& v,const mpz_class& n1);
 
-            const Group& getGroup() const;
+            const mpz_class& getGroupValue() const;
             const mpz_class& getValue() const;
             
 
             ElementZnSquareStar operator*(const ElementZnSquareStar& e) const;
 
             
-            ElementZnSquareStar pow(const mpz_class exponent) const;
+            ElementZnSquareStar pow(const mpz_class& exponent) const;
     };
 
 
@@ -74,7 +75,7 @@
 
         public :
             Encryption(const PublicKey& pk1);
-            mpz_class generate_cyphertext(const mpz_class& plaintext) const;
+            mpz_class generate_ciphertext(const mpz_class& plaintext) const;
     };
 
 
@@ -105,5 +106,3 @@
     };
 
 #endif
-
-

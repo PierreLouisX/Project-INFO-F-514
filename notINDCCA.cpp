@@ -15,12 +15,12 @@ int main(int argc, char* argv[]){
     mpz_class m1 = random_number_generator(scheme.getPublicKey().n);
 
     // We want to know the plaintext m1 but we only have the cypertext c1
-    mpz_class c1 = enc.generate_cyphertext(m1);
+    mpz_class c1 = enc.generate_ciphertext(m1);
 
 
     // Wa know m2 and we ask for Enc(m2)
     mpz_class m2 = 42;
-    mpz_class c2 = enc.generate_cyphertext(m2);
+    mpz_class c2 = enc.generate_ciphertext(m2);
 
     // Then we can find Enc(m1+m2) = Enc(m1)*Enc(m2) 
     mpz_class m3 = dec.return_plaintext((c1*c2)%(scheme.getPublicKey().n * scheme.getPublicKey().n));

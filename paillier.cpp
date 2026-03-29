@@ -154,40 +154,42 @@ const mpz_class& Group::get_q() const {return q;}
  * Ensures gcd(value, n²) = 1
  * 
  * @param v is the value we want to test
- * @param G1 group Z*_{n^2}
+ * @param n
+ * @param n_square group Z*_{n^2}
  */
 
-ElementZnSquareStar::ElementZnSquareStar(const mpz_class& v,const Group& G1) : value(v), G(G1) {
-    mpz_mod(value.get_mpz_t(),v.get_mpz_t(),G.get_n_square().get_mpz_t());
+ElementZnSquareStar::ElementZnSquareStar(const mpz_class& v,const mpz_class& n1) : value(v), n(n1), n_square(n1*n1) {
+    mpz_mod(value.get_mpz_t(),v.get_mpz_t(),n_square.get_mpz_t());
 
     mpz_class gcd;
-    mpz_gcd(gcd.get_mpz_t(),value.get_mpz_t(),G.get_n_square().get_mpz_t());
+    mpz_gcd(gcd.get_mpz_t(),value.get_mpz_t(),n_square.get_mpz_t());
 
     if(gcd != 1){
         throw std::invalid_argument("The value is not inversible in G");
     }
 }
 
-const Group& ElementZnSquareStar::getGroup() const {return G;}
+const mpz_class& ElementZnSquareStar::getGroupValue() const {return n;}
 const mpz_class& ElementZnSquareStar::getValue() const {return value;}
 
 ElementZnSquareStar ElementZnSquareStar::operator*(const ElementZnSquareStar& e) const {
-    if(G.get_n() != e.G.get_n()){
+    if(n != e.getGroupValue()){
         throw std::invalid_argument("Thoses elements are from different groups");
     }
 
     mpz_class result;
     mpz_mul(result.get_mpz_t(),value.get_mpz_t(),e.value.get_mpz_t());
-    mpz_mod(result.get_mpz_t(),result.get_mpz_t(),G.get_n_square().get_mpz_t());
+    
+    mpz_mod(result.get_mpz_t(),result.get_mpz_t(),n_square.get_mpz_t());
 
-    return ElementZnSquareStar(result,G);
+    return ElementZnSquareStar(result,n);
 }
 
-ElementZnSquareStar ElementZnSquareStar::pow(const mpz_class exponent) const {
+ElementZnSquareStar ElementZnSquareStar::pow(const mpz_class& exponent) const {
     mpz_class result;
-    mpz_powm(result.get_mpz_t(),value.get_mpz_t(),exponent.get_mpz_t(), G.get_n_square().get_mpz_t());
+    mpz_powm(result.get_mpz_t(),value.get_mpz_t(),exponent.get_mpz_t(), n_square.get_mpz_t());
 
-    return ElementZnSquareStar(result, G);
+    return ElementZnSquareStar(result, n);
 }
 
 
@@ -223,7 +225,7 @@ Encryption::Encryption(const PublicKey& pk1) : pk(pk1), n_square(pk1.n*pk1.n) {
  * c1 / c2 = g^(m1 - m2)
  */
 
-mpz_class Encryption::generate_cyphertext(const mpz_class& plaintext) const{
+mpz_class Encryption::generate_ciphertext(const mpz_class& plaintext) const{
     if((plaintext < 0) || (plaintext >= pk.n)){
         throw std::invalid_argument("plaintext out of range");
     }
