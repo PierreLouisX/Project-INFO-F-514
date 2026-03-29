@@ -86,7 +86,6 @@ bool miller_rabin_primality_test(const mpz_class& n, int bound){
 
     mpz_class x;
     mpz_class random_num;
-    mpz_class range = n - 4;
 
     
     for (int k = 0; k < bound; k++){
@@ -142,6 +141,8 @@ Group::Group(const mpz_class& p1,const mpz_class& q1){
 
 const mpz_class& Group::get_n() const {return n;}
 const mpz_class& Group::get_n_square() const {return n_square;}
+const mpz_class& Group::get_p() const {return p;}
+const mpz_class& Group::get_q() const {return q;}
 
 
 
@@ -171,7 +172,7 @@ const Group& ElementZnSquareStar::getGroup() const {return G;}
 const mpz_class& ElementZnSquareStar::getValue() const {return value;}
 
 ElementZnSquareStar ElementZnSquareStar::operator*(const ElementZnSquareStar& e) const {
-    if(&G != &e.G){
+    if(G.get_n() != e.G.get_n()){
         throw std::invalid_argument("Thoses elements are from different groups");
     }
 
@@ -195,7 +196,13 @@ ElementZnSquareStar ElementZnSquareStar::pow(const mpz_class exponent) const {
 
 
 
-Encryption::Encryption(const mpz_class& n) : n(n), g(n+1), n_square(n*n) {}
+Encryption::Encryption(const PublicKey& pk1) : pk(pk1), n_square(pk1.n*pk1.n) {
+
+    if (mpz_sizeinbase(pk.n.get_mpz_t(),2) < 1024){
+        throw std::invalid_argument("The key is too small < 1024 bits");
+    }
+
+}
 
 
 /**
@@ -217,21 +224,20 @@ Encryption::Encryption(const mpz_class& n) : n(n), g(n+1), n_square(n*n) {}
  */
 
 mpz_class Encryption::generate_cyphertext(const mpz_class& plaintext) const{
-    if((plaintext < 0) || (plaintext >= n)){
+    if((plaintext < 0) || (plaintext >= pk.n)){
         throw std::invalid_argument("plaintext out of range");
     }
     mpz_class r;
     mpz_class gcd;
     do {
-        // Reusing r across encryptions breaks semantic security
-        r = random_number_generator(n);
-        mpz_gcd(gcd.get_mpz_t(),r.get_mpz_t(),n.get_mpz_t());
+        r = random_number_generator(pk.n);
+        mpz_gcd(gcd.get_mpz_t(),r.get_mpz_t(),pk.n.get_mpz_t());
     }while(gcd != 1);
     mpz_class factor1;
     mpz_class factor2;
     // optimisation with g = n+1 
-    factor1 = plaintext*n +1; 
-    mpz_powm(factor2.get_mpz_t (),r.get_mpz_t(),n.get_mpz_t(),n_square.get_mpz_t());
+    factor1 = plaintext*pk.n +1; 
+    mpz_powm(factor2.get_mpz_t (),r.get_mpz_t(),pk.n.get_mpz_t(),n_square.get_mpz_t());
     mpz_class ciphertext;
     ciphertext = factor1 * factor2;
     mpz_mod(ciphertext.get_mpz_t(),ciphertext.get_mpz_t(),n_square.get_mpz_t());
@@ -245,38 +251,22 @@ mpz_class Encryption::generate_cyphertext(const mpz_class& plaintext) const{
 
 /**
  * @brief Constructor of the Decryption class
- * compute lambda = lcm(p-1, q-1)
- * compute mu = lambda⁻¹mod n (because g = n+1)
- * in general we have mu = (L(g^lambda mod n^2))^{-1} mod n
  * 
- * @param p non trivial prime divisor of n
- * @param q non trivial prime divisor of n
+ * @param pk1 the PublicKey
+ * @param sk1 the PrivateKey
  */
 
-Decryption::Decryption(const mpz_class& p, const mpz_class& q) : n(p*q), g(n+1), n_square(n*n){
-    mpz_class p1 = p -1;
-    mpz_class q1 = q-1;
-    // optimisation with g = n+1
-    // L((n+1)^Lambda mod n^2) = Lambda
-    mpz_lcm(lambda.get_mpz_t(),p1.get_mpz_t(), q1.get_mpz_t());
-    mpz_class gcd_check;
-    mpz_gcd(gcd_check.get_mpz_t(), lambda.get_mpz_t(), n.get_mpz_t());
-    if(gcd_check != 1){
-        throw std::runtime_error("Invalid parameters: gcd(lambda, n) != 1");
-    }
-    mpz_invert(mu.get_mpz_t(),lambda.get_mpz_t(),n.get_mpz_t());
-    
-}
+Decryption::Decryption(const PublicKey& pk1, const PrivateKey& sk1) : pk(pk1), sk(sk1), n_square(pk.n*pk.n){}
 
 // L fonction from paillier's paper
 // Defined only for u such that u ≡ 1 mod n
 
 mpz_class Decryption::L(const mpz_class& u) const{
     // Check if u is well defined
-    if((u%n != 1) || (u>= n_square)){
+    if((u%pk.n != 1) || (u>= n_square)){
         throw std::invalid_argument("the value of u is not valid");
     }
-    return (u-1)/n;
+    return (u-1)/pk.n;
 }
 
 
@@ -296,7 +286,7 @@ mpz_class Decryption::L(const mpz_class& u) const{
  * - This avoids modular exponentiation during encryption.
  */
 
-mpz_class Decryption::find_plaintext(const mpz_class& ciphertext) const{
+mpz_class Decryption::return_plaintext(const mpz_class& ciphertext) const{
 
     if((ciphertext < 0)||(ciphertext >= n_square)){
         throw std::invalid_argument("ciphertext out of range");
@@ -305,10 +295,45 @@ mpz_class Decryption::find_plaintext(const mpz_class& ciphertext) const{
     mpz_class plaintext;
     mpz_class val1;
 
-    mpz_powm(val1.get_mpz_t(), ciphertext.get_mpz_t(), lambda.get_mpz_t(), n_square.get_mpz_t());
+    mpz_powm(val1.get_mpz_t(), ciphertext.get_mpz_t(), sk.lambda.get_mpz_t(), n_square.get_mpz_t());
     val1 = L(val1);
 
-    plaintext = (val1*mu)%n;
+    plaintext = (val1*sk.mu)%pk.n;
 
     return plaintext;   
 }
+
+
+
+/**
+ * @brief constructor of the paillier scheme, generate the PublicKey and PrivateKey for Encryption and Decryption
+ * 
+ * @param G1 : a valide Group with n = p * q > 1024 bits, with p and q large prime numbers
+ */
+
+
+Paillier::Paillier(const Group& G1) : G(G1){
+
+    if (mpz_sizeinbase(G.get_n().get_mpz_t(),2) < 1024){
+        throw std::invalid_argument("The key is too small < 1024 bits");
+    }
+
+    pk.n = G1.get_n();
+    pk.g = G1.get_n() + 1; // Allow optimization during the Encryption
+
+
+    mpz_class p1 = G.get_p() -1;
+    mpz_class q1 = G.get_q() -1;
+
+    mpz_lcm(sk.lambda.get_mpz_t(),p1.get_mpz_t(), q1.get_mpz_t());
+    mpz_class gcd_check;
+    mpz_gcd(gcd_check.get_mpz_t(), sk.lambda.get_mpz_t(), pk.n.get_mpz_t());
+    if(gcd_check != 1){
+        throw std::runtime_error("Invalid parameters: gcd(lambda, n) != 1");
+    }
+    mpz_invert(sk.mu.get_mpz_t(),sk.lambda.get_mpz_t(),pk.n.get_mpz_t());
+}
+
+
+const PrivateKey& Paillier::getPrivateKey() const {return sk;}
+const PublicKey& Paillier::getPublicKey() const {return pk;}

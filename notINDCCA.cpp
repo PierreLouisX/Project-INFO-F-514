@@ -4,18 +4,15 @@
 
 int main(int argc, char* argv[]){
 
-    Group g1(generate_prime_openssl(128),generate_prime_openssl(128));
+    Group g1(generate_prime_openssl(1024),generate_prime_openssl(1024));
 
-    ElementZnSquareStar e1(generate_prime_openssl(128),g1);
-    ElementZnSquareStar e2(generate_prime_openssl(128), g1);
+    Paillier scheme(g1);
 
-    ElementZnSquareStar e3 = e1 * e2;
-
-    Encryption enc(e3.getValue());
-    Decryption dec(e1.getValue(),e2.getValue());
+    Encryption enc(scheme.getPublicKey());
+    Decryption dec(scheme.getPublicKey(),scheme.getPrivateKey());
 
     
-    mpz_class m1 = random_number_generator(e3.getValue());
+    mpz_class m1 = random_number_generator(scheme.getPublicKey().n);
 
     // We want to know the plaintext m1 but we only have the cypertext c1
     mpz_class c1 = enc.generate_cyphertext(m1);
@@ -26,10 +23,11 @@ int main(int argc, char* argv[]){
     mpz_class c2 = enc.generate_cyphertext(m2);
 
     // Then we can find Enc(m1+m2) = Enc(m1)*Enc(m2) 
-    mpz_class m3 = dec.find_plaintext((c1*c2)%(e3.getValue()*e3.getValue()));
+    mpz_class m3 = dec.return_plaintext((c1*c2)%(scheme.getPublicKey().n * scheme.getPublicKey().n));
     // Then we found m1 = m3 - m2
-    m3 = m3 - m2;
-    std::cout << m1 << m3 <<std::endl;
+    m3 = m3 - (m2 + scheme.getPublicKey().n) % scheme.getPublicKey().n;
+
+
     if(m1 == m3){
         std::cout << "Since paillier is homomorphic, the scheme is not IND-CCA, we found the value m3 = " << m3 << " = m1 = " << m1 << std::endl;
     }

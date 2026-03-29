@@ -11,6 +11,15 @@
     bool miller_rabin_primality_test(const mpz_class& n, int bound);
 
 
+    struct PublicKey {
+        mpz_class n;
+        mpz_class g; // Always set at n+1
+    };
+
+    struct PrivateKey {
+        mpz_class lambda;
+        mpz_class mu;
+    };
     
 
     // Represents Z_n*² (multiplicative group modulo n²)
@@ -27,6 +36,8 @@
             Group(const mpz_class& p1,const mpz_class& q1);
             const mpz_class& get_n() const;
             const mpz_class& get_n_square()const; 
+            const mpz_class& get_p() const;
+            const mpz_class& get_q() const;
     };
 
 
@@ -39,7 +50,7 @@
 
         private:
             mpz_class value;
-            const Group& G;
+            const Group G;
 
         public:
             ElementZnSquareStar(const mpz_class& v,const Group& G1);
@@ -58,32 +69,40 @@
 
     class Encryption {
         private :
-            mpz_class n;
-            mpz_class g;
+            PublicKey pk;
             mpz_class n_square;
 
         public :
-            Encryption(const mpz_class& n);
+            Encryption(const PublicKey& pk1);
             mpz_class generate_cyphertext(const mpz_class& plaintext) const;
     };
 
 
     class Decryption {
         private :
-            mpz_class p;
-            mpz_class q;
-            mpz_class n;
-            mpz_class g;
+            PublicKey pk;
+            PrivateKey sk;
             mpz_class n_square;
-            mpz_class lambda;
-            mpz_class mu;
+
             mpz_class L(const mpz_class& u) const;
 
         public :
-        Decryption(const mpz_class& p, const mpz_class& q);
-        mpz_class find_plaintext(const mpz_class& ciphertext) const;
+        Decryption(const PublicKey& pk1, const PrivateKey& sk1);
+        mpz_class return_plaintext(const mpz_class& ciphertext) const;
     };
 
+
+    class Paillier {
+        private :
+            const Group G;
+            PublicKey pk;
+            PrivateKey sk;
+
+        public:
+            Paillier(const Group& G1);
+            const PrivateKey& getPrivateKey() const;
+            const PublicKey& getPublicKey() const;
+    };
 
 #endif
 
