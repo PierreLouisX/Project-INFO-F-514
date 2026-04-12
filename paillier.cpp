@@ -255,10 +255,23 @@ mpz_class Encryption::generate_ciphertext(const mpz_class& plaintext) const{
  * @brief Constructor of the Decryption class
  * 
  * @param pk1 the PublicKey
- * @param sk1 the PrivateKey
+ * @param sk1 the ComputedPrivateKey using lambda and mu
  */
 
-Decryption::Decryption(const PublicKey& pk1, const PrivateKey& sk1) : pk(pk1), sk(sk1), n_square(pk.n*pk.n){}
+Decryption::Decryption(const PublicKey& pk1, const PrivateKey& sk1) : pk(pk1), n_square(pk.n*pk.n){
+    
+    mpz_class p1 = sk1.p -1;
+    mpz_class q1 = sk1.q -1;
+
+    mpz_lcm(sk.lambda.get_mpz_t(),p1.get_mpz_t(), q1.get_mpz_t());
+    mpz_class gcd_check;
+    mpz_gcd(gcd_check.get_mpz_t(), sk.lambda.get_mpz_t(), pk.n.get_mpz_t());
+    if(gcd_check != 1){
+        throw std::runtime_error("Invalid parameters: gcd(lambda, n) != 1");
+    }
+    mpz_invert(sk.mu.get_mpz_t(),sk.lambda.get_mpz_t(),pk.n.get_mpz_t());
+
+}
 
 // L fonction from paillier's paper
 // Defined only for u such that u ≡ 1 mod n
@@ -307,8 +320,87 @@ mpz_class Decryption::return_plaintext(const mpz_class& ciphertext) const{
 
 
 
+// DecryptionCRT
+
+
 /**
- * @brief constructor of the paillier scheme, generate the PublicKey and PrivateKey for Encryption and Decryption
+ * @brief Constructor of the Decryption class
+ * 
+ * @param pk1 the PublicKey
+ * @param sk1 the ComputedPrivateKey with p and q
+ */
+
+DecryptionCRT::DecryptionCRT(const PublicKey& pk1, const PrivateKey& sk1) : pk(pk1), sk(sk1), n_square(pk.n*pk.n){
+    mpz_class p1 = sk.p -1;
+    mpz_class q1 = sk.q -1;
+    mpz_class p_square = sk.p * sk.p;
+    mpz_class q_square = sk.q * sk.q;
+    mpz_powm(hp.get_mpz_t(), pk.g.get_mpz_t(), p1.get_mpz_t(), p_square.get_mpz_t());
+    mpz_powm(hq.get_mpz_t(), pk.g.get_mpz_t(), q1.get_mpz_t(), q_square.get_mpz_t());
+    hp = Lx(hp,sk.p)%sk.p;
+    hq = Lx(hq,sk.q)%sk.q;
+
+    if (hp < 0) hp += sk.p;
+    if (hq < 0) hq += sk.q;
+
+    mpz_invert(hp.get_mpz_t(), hp.get_mpz_t(), sk.p.get_mpz_t());
+    mpz_invert(hq.get_mpz_t(), hq.get_mpz_t(), sk.q.get_mpz_t());
+
+
+    mpz_invert(q_inv.get_mpz_t(), sk.q.get_mpz_t(), sk.p.get_mpz_t());
+}
+
+
+// Defined only for u such that u ≡ 1 mod x with x = p or q
+
+mpz_class DecryptionCRT::Lx(const mpz_class& u,const mpz_class& x) const{
+    // Check if u is well defined
+    if(u%x != 1){
+        throw std::invalid_argument("the value of u is not valid");
+    }
+    return (u-1)/x;
+}
+
+
+
+/**
+ * @brief return the plaintext quicky using the CRT computation
+ * @param ciphertext
+ */
+
+mpz_class DecryptionCRT::return_plaintext(const mpz_class& ciphertext) const{
+    mpz_class mp;
+    mpz_class mq;
+    mpz_class p1 = sk.p-1;
+    mpz_class p_square = sk.p*sk.p;
+    mpz_class q1 = sk.q-1;
+    mpz_class q_square = sk.q*sk.q;
+    mpz_powm(mp.get_mpz_t(),ciphertext.get_mpz_t(),p1.get_mpz_t(),p_square.get_mpz_t());
+    mpz_powm(mq.get_mpz_t(),ciphertext.get_mpz_t(),q1.get_mpz_t(),q_square.get_mpz_t());
+    mp = Lx(mp,sk.p);
+    mq = Lx(mq,sk.q);
+
+
+    mp = (mp*hp)%sk.p;
+    mq = (mq*hq)%sk.q;
+
+    // CRT 
+
+    mpz_class t = ((mp - mq) * q_inv) % sk.p;
+
+    mpz_class message = mq + sk.q * t;
+    message %= pk.n;
+    if(message < 0) {
+        message += pk.n;
+    }
+
+    return message;
+}
+
+
+
+/**
+ * @brief constructor of the paillier scheme, generate the PublicKey and ComputedPrivateKey for Encryption and Decryption
  * 
  * @param G1 : a valide Group with n = p * q > 1024 bits, with p and q large prime numbers
  */
@@ -323,19 +415,10 @@ Paillier::Paillier(const Group& G1) : G(G1){
     pk.n = G1.get_n();
     pk.g = G1.get_n() + 1; // Allow optimization during the Encryption
 
-
-    mpz_class p1 = G.get_p() -1;
-    mpz_class q1 = G.get_q() -1;
-
-    mpz_lcm(sk.lambda.get_mpz_t(),p1.get_mpz_t(), q1.get_mpz_t());
-    mpz_class gcd_check;
-    mpz_gcd(gcd_check.get_mpz_t(), sk.lambda.get_mpz_t(), pk.n.get_mpz_t());
-    if(gcd_check != 1){
-        throw std::runtime_error("Invalid parameters: gcd(lambda, n) != 1");
-    }
-    mpz_invert(sk.mu.get_mpz_t(),sk.lambda.get_mpz_t(),pk.n.get_mpz_t());
+    sk.p = G1.get_p();
+    sk.q = G1.get_q();
 }
 
 
-const PrivateKey& Paillier::getPrivateKey() const {return sk;}
 const PublicKey& Paillier::getPublicKey() const {return pk;}
+const PrivateKey& Paillier::getPrivateKey() const {return sk;}

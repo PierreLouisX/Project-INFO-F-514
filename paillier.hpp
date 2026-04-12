@@ -16,9 +16,14 @@
         mpz_class g; // Always set at n+1
     };
 
-    struct PrivateKey {
+    struct ComputedPrivateKey {
         mpz_class lambda;
         mpz_class mu;
+    };
+
+    struct PrivateKey {
+        mpz_class p;
+        mpz_class q;
     };
     
 
@@ -82,13 +87,30 @@
     class Decryption {
         private :
             PublicKey pk;
-            PrivateKey sk;
+            ComputedPrivateKey sk;
             mpz_class n_square;
 
             mpz_class L(const mpz_class& u) const;
 
         public :
         Decryption(const PublicKey& pk1, const PrivateKey& sk1);
+        mpz_class return_plaintext(const mpz_class& ciphertext) const;
+    };
+
+
+    class DecryptionCRT {
+        private :
+            PublicKey pk;
+            PrivateKey sk;
+            mpz_class n_square;
+            mpz_class hp;
+            mpz_class hq;
+            mpz_class q_inv;
+
+            mpz_class Lx(const mpz_class& u,const mpz_class& x) const;
+
+        public :
+        DecryptionCRT(const PublicKey& pk1, const PrivateKey& sk1);
         mpz_class return_plaintext(const mpz_class& ciphertext) const;
     };
 
@@ -101,8 +123,8 @@
 
         public:
             Paillier(const Group& G1);
-            const PrivateKey& getPrivateKey() const;
             const PublicKey& getPublicKey() const;
+            const PrivateKey& getPrivateKey() const;
     };
 
 #endif

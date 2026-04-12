@@ -1,5 +1,6 @@
 #include <iostream>
 #include "paillier.hpp"
+#include "CRTattack.hpp"
 #include <cmath>
 
 
@@ -27,18 +28,32 @@ int main(int argc, char* argv[]){
 
     Encryption enc(scheme.getPublicKey());
     Decryption dec(scheme.getPublicKey(),scheme.getPrivateKey());
+    DecryptionCRT deccrt(scheme.getPublicKey(), scheme.getPrivateKey());
 
     mpz_class c = enc.generate_ciphertext(m);
     std::cout << " ciphertext = " << c << std::endl;
     mpz_class m1 = dec.return_plaintext(c);
+    mpz_class m2 = deccrt.return_plaintext(c);
 
-    std::cout << " orignal message = " << m << " decrypted message = " << m1 << std::endl;
+    std::cout << " orignal message = " << m << " decrypted message = " << m1 << " decrypted message with CRT = " << m2 << std::endl;
+
+
 
 
 
     mpz_class c1 = enc.generate_ciphertext(123);
     // Homomorphic propriety
     std::cout << dec.return_plaintext((c*c1)%(e3.getValue()*e3.getValue())) << std::endl;
+
+
+
+    // CRT Attack
+    FaultyDecryptionCRT fdec(scheme.getPublicKey(),scheme.getPrivateKey());
+    mpz_class faulty_plaintext = fdec.return_faulty_plaintext(c);
+    PrivateKey sk = retrieve_key(scheme.getPublicKey(),faulty_plaintext, m);
+
+    std::cout << " PrivateKey (p) : " << scheme.getPrivateKey().p << " & " << scheme.getPrivateKey().q << " The key we retrieved is : " <<
+    sk.p << " & " << sk.q << std::endl;
     
 
     return 0;
