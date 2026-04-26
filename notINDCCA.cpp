@@ -25,7 +25,7 @@ int main(int argc, char* argv[]){
     // Then we can find Enc(m1+m2) = Enc(m1)*Enc(m2) 
     mpz_class m3 = dec.return_plaintext((c1*c2)%(scheme.getPublicKey().n * scheme.getPublicKey().n));
     // Then we found m1 = m3 - m2
-    m3 = m3 - (m2 + scheme.getPublicKey().n) % scheme.getPublicKey().n;
+    m3 = (m3 - m2 + scheme.getPublicKey().n) % scheme.getPublicKey().n;
 
 
     if(m1 == m3){

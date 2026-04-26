@@ -43,7 +43,10 @@ int main(int argc, char* argv[]){
 
     mpz_class c1 = enc.generate_ciphertext(123);
     // Homomorphic propriety
-    std::cout << dec.return_plaintext((c*c1)%(e3.getValue()*e3.getValue())) << std::endl;
+    mpz_class n_square = scheme.getPublicKey().n * scheme.getPublicKey().n;
+    std::cout << " homomorphic sum test = "
+              << dec.return_plaintext((c * c1) % n_square)
+              << " (expected 165)" << std::endl;
 
 
 
