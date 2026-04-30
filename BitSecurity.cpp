@@ -500,20 +500,37 @@ void experiment_hard_core_distribution() {
 
     const unsigned int key_bits = 128;
     const mpz_class key_modulus = power_of_two(key_bits);
-    const mpz_class sym_key = random_number_generator(key_modulus);
-    const mpz_class max_prefix = (context.pk.n - 1 - sym_key) / key_modulus;
-    const mpz_class prefix = (max_prefix == 0) ? 0 : random_number_generator(max_prefix + 1);
-    const mpz_class message = prefix * key_modulus + sym_key;
-    const mpz_class ciphertext = encrypt_for_experiment(context.pk, message);
-    const mpz_class recovered_message = dec.return_plaintext(ciphertext);
-    const mpz_class recovered_key = recovered_message % key_modulus;
+    const unsigned int num_runs = 100;
+
+    mpz_class first_sym_key = 0;
+    mpz_class first_recovered_key = 0;
+    unsigned int recovered_count = 0;
+
+    for (unsigned int run = 0; run < num_runs; ++run) {
+        const mpz_class sym_key = random_number_generator(key_modulus);
+        const mpz_class max_prefix = (context.pk.n - 1 - sym_key) / key_modulus;
+        const mpz_class prefix = (max_prefix == 0) ? 0 : random_number_generator(max_prefix + 1);
+        const mpz_class message = prefix * key_modulus + sym_key;
+        const mpz_class ciphertext = encrypt_for_experiment(context.pk, message);
+        const mpz_class recovered_message = dec.return_plaintext(ciphertext);
+        const mpz_class recovered_key = recovered_message % key_modulus;
+
+        if (recovered_key == sym_key) {
+            ++recovered_count;
+        }
+        if (run == 0) {
+            first_sym_key = sym_key;
+            first_recovered_key = recovered_key;
+        }
+    }
 
     std::cout << "  Modulus size: " << modulus_bits << " bits\n";
-    std::cout << "  Symmetric key (hex): 0x" << sym_key.get_str(16) << '\n';
+    std::cout << "  Independent runs: " << num_runs << '\n';
+    std::cout << "  Example symmetric key (hex): 0x" << first_sym_key.get_str(16) << '\n';
     std::cout << "  Padded message layout: prefix || key\n";
     std::cout << "  Ciphertext size: approximately " << (2 * modulus_bits) << " bits\n";
-    std::cout << "  Recovered key (hex): 0x" << recovered_key.get_str(16) << '\n';
-    std::cout << "  [OK] Key correctly recovered: " << (recovered_key == sym_key ? "true" : "false") << '\n';
+    std::cout << "  Example recovered key (hex): 0x" << first_recovered_key.get_str(16) << '\n';
+    std::cout << "  [OK] Keys correctly recovered: " << recovered_count << "/" << num_runs << '\n';
     std::cout << "  Under B-hardness with b = " << (modulus_bits - key_bits)
               << ", the low " << key_bits << " bits are intended to remain simultaneously hidden.\n";
 }
